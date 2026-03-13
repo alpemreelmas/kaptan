@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "github.com/yourusername/kaptan/proto/gen/agent/v1;agentv1";
+
+service AgentService {
+  rpc Deploy(DeployRequest) returns (stream ExecEvent);
+  rpc Rollback(RollbackRequest) returns (stream ExecEvent);
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+  rpc StreamLogs(LogRequest) returns (stream LogLine);
+  rpc GetDependencyGraph(GraphRequest) returns (GraphResponse);
+}
+
+message DeployRequest {
+  string project_path = 1;
+  string script       = 2;
+  bool   dry_run      = 3;
+}
+
+message RollbackRequest {
+  string project_path = 1;
+}
+
+message ExecEvent {
+  string line      = 1;
+  bool   is_stderr = 2;
+  int32  exit_code = 3;
+  bool   done      = 4;
+}
+
+message HealthRequest {
+  string url = 1;
+}
+
+message HealthResponse {
+  bool   ok          = 1;
+  int32  status_code = 2;
+  string message     = 3;
+}
+
+message StatusRequest {
+  repeated string project_paths = 1;
+}
+
+message ServiceStatus {
+  string project_path = 1;
+  string service_name = 2;
+  bool   healthy      = 3;
+  int32  status_code  = 4;
+  string health_url   = 5;
+}
+
+message StatusResponse {
+  repeated ServiceStatus services = 1;
+}
+
+message LogRequest {
+  string project_path = 1;
+  string log_file     = 2;
+  int32  tail         = 3;
+}
+
+message LogLine {
+  string content   = 1;
+  int64  timestamp = 2;
+}
+
+message GraphRequest {
+  string log_file = 1;
+}
+
+message GraphEdge {
+  string from        = 1;
+  string to          = 2;
+  int32  status_code = 3;
+  int32  error_count = 4;
+}
+
+message GraphResponse {
+  repeated GraphEdge edges = 1;
+}

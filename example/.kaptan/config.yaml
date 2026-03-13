@@ -1,0 +1,4 @@
+service: my-laravel-app
+server: web-prod-1
+path: /home/forge/myapp.com
+health_url: http://127.0.0.1:8000/health
