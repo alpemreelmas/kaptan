@@ -790,7 +790,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tGetStatus\x12\x17.agent.v1.StatusRequest\x1a\x18.agent.v1.StatusResponse\x127\n" +
 	"\n" +
 	"StreamLogs\x12\x14.agent.v1.LogRequest\x1a\x11.agent.v1.LogLine0\x01\x12E\n" +
-	"\x12GetDependencyGraph\x12\x16.agent.v1.GraphRequest\x1a\x17.agent.v1.GraphResponseB;Z9github.com/yourusername/kaptan/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x12GetDependencyGraph\x12\x16.agent.v1.GraphRequest\x1a\x17.agent.v1.GraphResponseB;Z9github.com/alpemreelmas/kaptan/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_agent_proto_rawDescOnce sync.Once

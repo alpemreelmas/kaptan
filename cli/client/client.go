@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	agentv1 "github.com/yourusername/kaptan/proto/agent/v1"
+	agentv1 "github.com/alpemreelmas/kaptan/proto/agent/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -57,13 +57,34 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 func LoadProjectConfig() (*ProjectConfig, error) {
 	data, err := os.ReadFile(".kaptan/config.yaml")
 	if err != nil {
-		return nil, fmt.Errorf(".kaptan/config.yaml not found — is this a kaptan project?")
+		return nil, fmt.Errorf(".kaptan/config.yaml not found — is this a kaptan project?\n  Run: mkdir .kaptan && touch .kaptan/config.yaml .kaptan/deploy.sh")
 	}
 	var cfg ProjectConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse project config: %w", err)
 	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+// Validate checks that all required fields are present in the project config.
+func (c *ProjectConfig) Validate() error {
+	var missing []string
+	if c.Service == "" {
+		missing = append(missing, "service")
+	}
+	if c.Server == "" {
+		missing = append(missing, "server")
+	}
+	if c.Path == "" {
+		missing = append(missing, "path")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf(".kaptan/config.yaml is missing required fields: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // FindServer returns the ServerEntry for the given name.
@@ -101,6 +122,13 @@ func Connect(srv *ServerEntry) (agentv1.AgentServiceClient, *grpc.ClientConn, er
 	caFile := expandHome(srv.TLS.CA)
 
 	if certFile != "" && keyFile != "" && caFile != "" {
+		for _, f := range []struct{ label, path string }{
+			{"TLS cert", certFile}, {"TLS key", keyFile}, {"CA cert", caFile},
+		} {
+			if _, err := os.Stat(f.path); os.IsNotExist(err) {
+				return nil, nil, fmt.Errorf("%s not found: %s\n  Run: m cert init", f.label, f.path)
+			}
+		}
 		creds, err := buildClientTLS(certFile, keyFile, caFile)
 		if err != nil {
 			return nil, nil, fmt.Errorf("TLS setup: %w", err)

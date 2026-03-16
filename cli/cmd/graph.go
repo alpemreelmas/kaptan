@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/spf13/cobra"
-	"github.com/yourusername/kaptan/cli/client"
-	"github.com/yourusername/kaptan/cli/tui"
-	agentv1 "github.com/yourusername/kaptan/proto/agent/v1"
+	"github.com/alpemreelmas/kaptan/cli/client"
+	"github.com/alpemreelmas/kaptan/cli/tui"
+	agentv1 "github.com/alpemreelmas/kaptan/proto/agent/v1"
 )
 
 var (

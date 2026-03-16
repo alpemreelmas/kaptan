@@ -1,9 +1,9 @@
-module github.com/yourusername/kaptan/agent
+module github.com/alpemreelmas/kaptan/agent
 
 go 1.22
 
 require (
-	github.com/yourusername/kaptan/proto v0.0.0
+	github.com/alpemreelmas/kaptan/proto v0.0.0
 	google.golang.org/grpc v1.64.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -16,4 +16,4 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 )
 
-replace github.com/yourusername/kaptan/proto => ../proto/gen
+replace github.com/alpemreelmas/kaptan/proto => ../proto/gen

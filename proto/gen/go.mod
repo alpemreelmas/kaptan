@@ -1,4 +1,4 @@
-module github.com/yourusername/kaptan/proto
+module github.com/alpemreelmas/kaptan/proto
 
 go 1.22
 

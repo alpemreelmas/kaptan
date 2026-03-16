@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/yourusername/kaptan/cli/cmd"
+	"github.com/alpemreelmas/kaptan/cli/cmd"
 )
 
 func main() {

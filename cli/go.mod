@@ -1,4 +1,4 @@
-module github.com/yourusername/kaptan/cli
+module github.com/alpemreelmas/kaptan/cli
 
 go 1.22
 
@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.26.6
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/spf13/cobra v1.8.1
-	github.com/yourusername/kaptan/proto v0.0.0
+	github.com/alpemreelmas/kaptan/proto v0.0.0
 	google.golang.org/grpc v1.64.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -37,4 +37,4 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 )
 
-replace github.com/yourusername/kaptan/proto => ../proto/gen
+replace github.com/alpemreelmas/kaptan/proto => ../proto/gen

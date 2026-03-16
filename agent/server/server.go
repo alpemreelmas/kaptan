@@ -7,16 +7,16 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
 
-	agentv1 "github.com/yourusername/kaptan/proto/agent/v1"
-	"github.com/yourusername/kaptan/agent/executor"
-	"github.com/yourusername/kaptan/agent/health"
-	"github.com/yourusername/kaptan/agent/graph"
+	agentv1 "github.com/alpemreelmas/kaptan/proto/agent/v1"
+	"github.com/alpemreelmas/kaptan/agent/executor"
+	"github.com/alpemreelmas/kaptan/agent/health"
+	"github.com/alpemreelmas/kaptan/agent/graph"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -44,9 +44,9 @@ func Run(addr, certFile, keyFile, caFile string) error {
 			return fmt.Errorf("build TLS: %w", err)
 		}
 		opts = append(opts, grpc.Creds(creds))
-		log.Printf("mTLS enabled")
+		slog.Info("mTLS enabled")
 	} else {
-		log.Printf("WARNING: running without TLS — for development only")
+		slog.Warn("running without TLS — for development only")
 	}
 
 	srv := grpc.NewServer(opts...)
@@ -57,7 +57,7 @@ func Run(addr, certFile, keyFile, caFile string) error {
 		return fmt.Errorf("listen %s: %w", addr, err)
 	}
 
-	log.Printf("listening on %s", addr)
+	slog.Info("listening", "addr", addr)
 	return srv.Serve(lis)
 }
 
@@ -92,11 +92,13 @@ func (s *agentServer) Deploy(req *agentv1.DeployRequest, stream agentv1.AgentSer
 	scriptPath := filepath.Join(req.ProjectPath, ".kaptan", scriptName+".sh")
 
 	if req.DryRun {
+		slog.Info("deploy dry-run", "script", scriptPath)
 		_ = stream.Send(&agentv1.ExecEvent{Line: fmt.Sprintf("[dry-run] would execute: %s", scriptPath)})
 		_ = stream.Send(&agentv1.ExecEvent{Line: "[dry-run] done", Done: true, ExitCode: 0})
 		return nil
 	}
 
+	slog.Info("deploy started", "path", req.ProjectPath, "script", scriptPath)
 	exitCode, err := executor.RunScript(scriptPath, stream.Context(), func(line string, isErr bool) error {
 		return stream.Send(&agentv1.ExecEvent{Line: line, IsStderr: isErr})
 	})
@@ -105,7 +107,7 @@ func (s *agentServer) Deploy(req *agentv1.DeployRequest, stream agentv1.AgentSer
 		return status.Errorf(codes.Internal, "executor: %v", err)
 	}
 
-	// send final event with exit code
+	slog.Info("deploy finished", "path", req.ProjectPath, "exit_code", exitCode)
 	if sendErr := stream.Send(&agentv1.ExecEvent{
 		Done:     true,
 		ExitCode: int32(exitCode),
@@ -119,15 +121,16 @@ func (s *agentServer) Deploy(req *agentv1.DeployRequest, stream agentv1.AgentSer
 		if cfg != nil && cfg.HealthURL != "" {
 			ok, code, _ := health.Check(cfg.HealthURL, 30*time.Second)
 			if !ok {
+				slog.Warn("health check failed, triggering rollback", "url", cfg.HealthURL, "status_code", code)
 				_ = stream.Send(&agentv1.ExecEvent{
 					Line: fmt.Sprintf("[health] %s returned %d — triggering rollback", cfg.HealthURL, code),
 				})
-				// attempt auto-rollback
 				s.runRollback(req.ProjectPath, stream.Context(), func(line string, isErr bool) error {
 					return stream.Send(&agentv1.ExecEvent{Line: "[rollback] " + line, IsStderr: isErr})
 				})
 				return status.Errorf(codes.Internal, "health check failed (%d), rolled back", code)
 			}
+			slog.Info("health check passed", "url", cfg.HealthURL, "status_code", code)
 			_ = stream.Send(&agentv1.ExecEvent{
 				Line: fmt.Sprintf("[health] %s → %d OK", cfg.HealthURL, code),
 			})

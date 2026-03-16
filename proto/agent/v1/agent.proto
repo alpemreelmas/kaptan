@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package agent.v1;
 
-option go_package = "github.com/yourusername/kaptan/proto/gen/agent/v1;agentv1";
+option go_package = "github.com/alpemreelmas/kaptan/proto/gen/agent/v1;agentv1";
 
 service AgentService {
   rpc Deploy(DeployRequest) returns (stream ExecEvent);

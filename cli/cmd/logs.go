@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/yourusername/kaptan/cli/client"
-	agentv1 "github.com/yourusername/kaptan/proto/agent/v1"
+	"github.com/alpemreelmas/kaptan/cli/client"
+	agentv1 "github.com/alpemreelmas/kaptan/proto/agent/v1"
 )
 
 var (

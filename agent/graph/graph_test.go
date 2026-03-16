@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yourusername/kaptan/agent/graph"
+	"github.com/alpemreelmas/kaptan/agent/graph"
 )
 
 const sampleLog = `127.0.0.1 - - [13/Mar/2026:12:00:00 +0000] "GET http://my-nodejs-app:3000/api HTTP/1.1" 200 1234

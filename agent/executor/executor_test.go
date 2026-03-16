@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yourusername/kaptan/agent/executor"
+	"github.com/alpemreelmas/kaptan/agent/executor"
 )
 
 func writeScript(t *testing.T, content string) string {

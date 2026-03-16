@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yourusername/kaptan/agent/health"
+	"github.com/alpemreelmas/kaptan/agent/health"
 )
 
 func TestCheck_OK(t *testing.T) {

@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
-	"github.com/yourusername/kaptan/agent/server"
+	"github.com/alpemreelmas/kaptan/agent/server"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,12 +25,14 @@ func main() {
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		slog.Error("failed to load config", "err", err)
+		os.Exit(1)
 	}
 
-	log.Printf("kaptan-agent starting on %s", cfg.ListenAddr)
+	slog.Info("kaptan-agent starting", "addr", cfg.ListenAddr)
 	if err := server.Run(cfg.ListenAddr, cfg.TLS.Cert, cfg.TLS.Key, cfg.TLS.CA); err != nil {
-		log.Fatalf("server error: %v", err)
+		slog.Error("server error", "err", err)
+		os.Exit(1)
 	}
 }
 

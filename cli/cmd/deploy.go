@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yourusername/kaptan/cli/client"
-	"github.com/yourusername/kaptan/cli/tui"
-	agentv1 "github.com/yourusername/kaptan/proto/agent/v1"
+	"github.com/alpemreelmas/kaptan/cli/client"
+	"github.com/alpemreelmas/kaptan/cli/tui"
+	agentv1 "github.com/alpemreelmas/kaptan/proto/agent/v1"
 )
 
 var (
@@ -98,27 +99,45 @@ func deployToTag(global *client.GlobalConfig) error {
 	return nil
 }
 
+const deployMaxAttempts = 3
+
 func deployToServer(srv *client.ServerEntry, projectPath, script string, dryRun bool) error {
-	agentClient, conn, err := client.Connect(srv)
-	if err != nil {
-		return fmt.Errorf("[%s] connect: %w", srv.Name, err)
-	}
-	defer conn.Close()
+	var lastErr error
+	for attempt := 1; attempt <= deployMaxAttempts; attempt++ {
+		if attempt > 1 {
+			wait := time.Duration(attempt-1) * time.Second
+			fmt.Fprintf(os.Stderr, "[%s] retrying in %s (attempt %d/%d)...\n", srv.Name, wait, attempt, deployMaxAttempts)
+			time.Sleep(wait)
+		}
 
-	stream, err := agentClient.Deploy(context.Background(), &agentv1.DeployRequest{
-		ProjectPath: projectPath,
-		Script:      script,
-		DryRun:      dryRun,
-	})
-	if err != nil {
-		return fmt.Errorf("[%s] deploy RPC: %w", srv.Name, err)
-	}
+		agentClient, conn, err := client.Connect(srv)
+		if err != nil {
+			lastErr = fmt.Errorf("[%s] connect: %w", srv.Name, err)
+			continue
+		}
 
-	if deployNoTUI {
-		return streamToStdout(srv.Name, stream)
-	}
+		stream, err := agentClient.Deploy(context.Background(), &agentv1.DeployRequest{
+			ProjectPath: projectPath,
+			Script:      script,
+			DryRun:      dryRun,
+		})
+		if err != nil {
+			conn.Close()
+			lastErr = fmt.Errorf("[%s] deploy RPC: %w", srv.Name, err)
+			continue
+		}
 
-	return tui.RunDeploy(srv.Name, srv.Host, projectPath+"/"+script+".sh", stream)
+		// Stream started — script errors are not retried.
+		var runErr error
+		if deployNoTUI {
+			runErr = streamToStdout(srv.Name, stream)
+		} else {
+			runErr = tui.RunDeploy(srv.Name, srv.Host, projectPath+"/"+script+".sh", stream)
+		}
+		conn.Close()
+		return runErr
+	}
+	return lastErr
 }
 
 func streamToStdout(serverName string, stream agentv1.AgentService_DeployClient) error {
