@@ -53,7 +53,8 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	defer conn.Close()
 
 	resp, err := agentClient.GetDependencyGraph(context.Background(), &agentv1.GraphRequest{
-		LogFile: graphLogFile,
+		LogFile:         graphLogFile,
+		InternalDomains: global.Graph.InternalDomains,
 	})
 	if err != nil {
 		return err

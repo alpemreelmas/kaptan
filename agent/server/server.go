@@ -255,7 +255,7 @@ func (s *agentServer) StreamLogs(req *agentv1.LogRequest, stream agentv1.AgentSe
 }
 
 func (s *agentServer) GetDependencyGraph(ctx context.Context, req *agentv1.GraphRequest) (*agentv1.GraphResponse, error) {
-	edges, err := graph.ParseNginxLog(req.LogFile)
+	edges, err := graph.ParseNginxLog(req.LogFile, req.InternalDomains)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "parse log: %v", err)
 	}
@@ -266,6 +266,7 @@ func (s *agentServer) GetDependencyGraph(ctx context.Context, req *agentv1.Graph
 			To:         e.To,
 			StatusCode: int32(e.StatusCode),
 			ErrorCount: int32(e.ErrorCount),
+			External:   e.Kind == graph.External,
 		})
 	}
 	return &agentv1.GraphResponse{Edges: protoEdges}, nil

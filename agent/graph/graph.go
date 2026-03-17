@@ -9,12 +9,36 @@ import (
 	"strings"
 )
 
+// EdgeKind distinguishes internal service-to-service calls from external API calls.
+type EdgeKind int
+
+const (
+	Internal EdgeKind = iota
+	External
+)
+
 // Edge represents a dependency between two services observed in access logs.
 type Edge struct {
 	From       string
 	To         string
 	StatusCode int
 	ErrorCount int
+	Kind       EdgeKind
+}
+
+// MatchesInternal reports whether host matches any pattern in the internal domain list.
+// Patterns support glob wildcards (e.g. "*.internal", "*.svc.cluster.local").
+func MatchesInternal(host string, patterns []string) bool {
+	for _, p := range patterns {
+		if matched, _ := filepath.Match(p, host); matched {
+			return true
+		}
+		// also match bare hostname (no dots) as internal by default
+		if p == host {
+			return true
+		}
+	}
+	return false
 }
 
 // reNginx matches lines like:
@@ -39,7 +63,9 @@ func serviceNameFromPath(logFile string) string {
 
 // ParseNginxLog reads an nginx access log and returns edges grouped by
 // (from, to, status_code) with accurate error counts.
-func ParseNginxLog(logFile string) ([]Edge, error) {
+// internalDomains is a list of glob patterns used to classify edges as Internal or External.
+// An empty list causes all edges to be classified as Internal.
+func ParseNginxLog(logFile string, internalDomains []string) ([]Edge, error) {
 	f, err := os.Open(logFile)
 	if err != nil {
 		return nil, err
@@ -70,11 +96,16 @@ func ParseNginxLog(logFile string) ([]Edge, error) {
 		if k.code >= 400 {
 			errCount = cnt
 		}
+		kind := External
+		if len(internalDomains) == 0 || MatchesInternal(k.to, internalDomains) {
+			kind = Internal
+		}
 		edges = append(edges, Edge{
 			From:       from,
 			To:         k.to,
 			StatusCode: k.code,
 			ErrorCount: errCount,
+			Kind:       kind,
 		})
 	}
 	return edges, nil

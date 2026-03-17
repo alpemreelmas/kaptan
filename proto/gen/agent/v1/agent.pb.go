@@ -574,10 +574,11 @@ func (x *LogLine) GetTimestamp() int64 {
 }
 
 type GraphRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LogFile       string                 `protobuf:"bytes,1,opt,name=log_file,json=logFile,proto3" json:"log_file,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	LogFile         string                 `protobuf:"bytes,1,opt,name=log_file,json=logFile,proto3" json:"log_file,omitempty"`
+	InternalDomains []string               `protobuf:"bytes,2,rep,name=internal_domains,json=internalDomains,proto3" json:"internal_domains,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GraphRequest) Reset() {
@@ -617,12 +618,20 @@ func (x *GraphRequest) GetLogFile() string {
 	return ""
 }
 
+func (x *GraphRequest) GetInternalDomains() []string {
+	if x != nil {
+		return x.InternalDomains
+	}
+	return nil
+}
+
 type GraphEdge struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
 	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
 	StatusCode    int32                  `protobuf:"varint,3,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"`
 	ErrorCount    int32                  `protobuf:"varint,4,opt,name=error_count,json=errorCount,proto3" json:"error_count,omitempty"`
+	External      bool                   `protobuf:"varint,5,opt,name=external,proto3" json:"external,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -683,6 +692,13 @@ func (x *GraphEdge) GetErrorCount() int32 {
 		return x.ErrorCount
 	}
 	return 0
+}
+
+func (x *GraphEdge) GetExternal() bool {
+	if x != nil {
+		return x.External
+	}
+	return false
 }
 
 type GraphResponse struct {

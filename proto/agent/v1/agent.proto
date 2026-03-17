@@ -68,7 +68,8 @@ message LogLine {
 }
 
 message GraphRequest {
-  string log_file = 1;
+  string          log_file         = 1;
+  repeated string internal_domains = 2;
 }
 
 message GraphEdge {
@@ -76,6 +77,7 @@ message GraphEdge {
   string to          = 2;
   int32  status_code = 3;
   int32  error_count = 4;
+  bool   external    = 5;
 }
 
 message GraphResponse {

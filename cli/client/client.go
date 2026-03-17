@@ -18,6 +18,12 @@ import (
 // GlobalConfig is the ~/.kaptan/config.yaml structure.
 type GlobalConfig struct {
 	Servers []ServerEntry `yaml:"servers"`
+	Graph   GraphConfig   `yaml:"graph"`
+}
+
+// GraphConfig holds dependency graph settings.
+type GraphConfig struct {
+	InternalDomains []string `yaml:"internal_domains"`
 }
 
 type ServerEntry struct {
