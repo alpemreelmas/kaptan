@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("kaptan-agent starting", "addr", cfg.ListenAddr)
+	slog.Info("reis starting", "addr", cfg.ListenAddr)
 	if err := server.Run(cfg.ListenAddr, cfg.TLS.Cert, cfg.TLS.Key, cfg.TLS.CA); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
@@ -38,7 +38,7 @@ func main() {
 
 func defaultConfigPath() string {
 	home, _ := os.UserHomeDir()
-	return home + "/.kaptan-agent/config.yaml"
+	return home + "/.reis/config.yaml"
 }
 
 func loadConfig(path string) (*Config, error) {

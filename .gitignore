@@ -21,8 +21,8 @@ go.work.sum
 *.pfx
 certs/
 
-# kaptan agent config (may contain sensitive paths)
-.kaptan-agent/
+# reis agent config (may contain sensitive paths)
+.reis/
 
 # Editor & OS
 .idea/

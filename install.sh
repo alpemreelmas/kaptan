@@ -2,10 +2,10 @@
 set -euo pipefail
 
 REPO="alpemreelmas/kaptan"
-INSTALL_DIR="${HOME}/.kaptan-agent"
+INSTALL_DIR="${HOME}/.reis"
 BIN_DIR="${INSTALL_DIR}/bin"
 CERTS_DIR="${INSTALL_DIR}/certs"
-SYSTEMD_UNIT="/etc/systemd/system/kaptan-agent.service"
+SYSTEMD_UNIT="/etc/systemd/system/reis.service"
 
 # --- detect OS/arch ---
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -16,19 +16,19 @@ case "$ARCH" in
   *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
-echo "Installing kaptan-agent for ${OS}/${ARCH}..."
+echo "Installing reis for ${OS}/${ARCH}..."
 
 # --- download binary ---
 LATEST=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
   | grep '"tag_name"' | sed 's/.*"tag_name": "\(.*\)".*/\1/')
 
-BINARY_URL="https://github.com/${REPO}/releases/download/${LATEST}/kaptan-agent-${OS}-${ARCH}"
+BINARY_URL="https://github.com/${REPO}/releases/download/${LATEST}/reis-${OS}-${ARCH}"
 
 mkdir -p "${BIN_DIR}" "${CERTS_DIR}"
-curl -fsSL "${BINARY_URL}" -o "${BIN_DIR}/kaptan-agent"
-chmod +x "${BIN_DIR}/kaptan-agent"
+curl -fsSL "${BINARY_URL}" -o "${BIN_DIR}/reis"
+chmod +x "${BIN_DIR}/reis"
 
-echo "Binary installed to ${BIN_DIR}/kaptan-agent"
+echo "Binary installed to ${BIN_DIR}/reis"
 
 # --- write default config ---
 cat > "${INSTALL_DIR}/config.yaml" <<EOF
@@ -41,15 +41,15 @@ EOF
 
 # --- systemd unit ---
 if command -v systemctl &>/dev/null; then
-  cat > /tmp/kaptan-agent.service <<EOF
+  cat > /tmp/reis.service <<EOF
 [Unit]
-Description=kaptan-agent gRPC deployment agent
+Description=reis gRPC deployment agent
 After=network.target
 
 [Service]
 Type=simple
 User=$(whoami)
-ExecStart=${BIN_DIR}/kaptan-agent --config ${INSTALL_DIR}/config.yaml
+ExecStart=${BIN_DIR}/reis --config ${INSTALL_DIR}/config.yaml
 Restart=on-failure
 RestartSec=5
 
@@ -58,22 +58,22 @@ WantedBy=multi-user.target
 EOF
 
   if [ -w /etc/systemd/system ]; then
-    cp /tmp/kaptan-agent.service "${SYSTEMD_UNIT}"
+    cp /tmp/reis.service "${SYSTEMD_UNIT}"
     systemctl daemon-reload
-    systemctl enable kaptan-agent
-    systemctl start kaptan-agent
-    echo "kaptan-agent started via systemd"
+    systemctl enable reis
+    systemctl start reis
+    echo "reis started via systemd"
   else
     echo "No write access to /etc/systemd/system — copying unit file to ${INSTALL_DIR}/"
-    cp /tmp/kaptan-agent.service "${INSTALL_DIR}/kaptan-agent.service"
+    cp /tmp/reis.service "${INSTALL_DIR}/reis.service"
     echo "Run as root to install systemd service:"
-    echo "  sudo cp ${INSTALL_DIR}/kaptan-agent.service ${SYSTEMD_UNIT}"
-    echo "  sudo systemctl enable --now kaptan-agent"
+    echo "  sudo cp ${INSTALL_DIR}/reis.service ${SYSTEMD_UNIT}"
+    echo "  sudo systemctl enable --now reis"
   fi
 fi
 
 echo ""
-echo "kaptan-agent installed successfully!"
+echo "reis installed successfully!"
 echo ""
 echo "Next: paste your CA certificate into ${CERTS_DIR}/ca.crt"
-echo "Or run from your dev machine: m server bootstrap <name> <ssh-user@host>"
+echo "Or run from your dev machine: kaptan server bootstrap <name> <ssh-user@host>"

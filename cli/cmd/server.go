@@ -25,7 +25,7 @@ var serverAddCmd = &cobra.Command{
 
 var serverBootstrapCmd = &cobra.Command{
 	Use:   "bootstrap <name> <ssh-user@host>",
-	Short: "Install kaptan-agent on a server via SSH",
+	Short: "Install reis on a server via SSH",
 	Args:  cobra.ExactArgs(2),
 	RunE:  runServerBootstrap,
 }
@@ -67,10 +67,10 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 	caPath := filepath.Join(home, ".kaptan", "certs", "ca.crt")
 
 	if _, err := os.Stat(caPath); err != nil {
-		return fmt.Errorf("CA cert not found at %s — run 'm cert init' first", caPath)
+		return fmt.Errorf("CA cert not found at %s — run 'kaptan cert init' first", caPath)
 	}
 
-	fmt.Printf("Bootstrapping kaptan-agent on %s (%s)...\n", name, sshTarget)
+	fmt.Printf("Bootstrapping reis on %s (%s)...\n", name, sshTarget)
 
 	// install agent via remote install.sh
 	installCmd := exec.Command("ssh", sshTarget,
@@ -83,7 +83,7 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 
 	// copy CA cert to agent
 	fmt.Println("Copying CA certificate...")
-	scpCmd := exec.Command("scp", caPath, sshTarget+":~/.kaptan-agent/certs/ca.crt")
+	scpCmd := exec.Command("scp", caPath, sshTarget+":~/.reis/certs/ca.crt")
 	scpCmd.Stdout = os.Stdout
 	scpCmd.Stderr = os.Stderr
 	if err := scpCmd.Run(); err != nil {
@@ -91,7 +91,7 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	// restart agent
-	restartCmd := exec.Command("ssh", sshTarget, "systemctl restart kaptan-agent")
+	restartCmd := exec.Command("ssh", sshTarget, "systemctl restart reis")
 	restartCmd.Stdout = os.Stdout
 	restartCmd.Stderr = os.Stderr
 	if err := restartCmd.Run(); err != nil {
@@ -99,7 +99,7 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Successfully bootstrapped %s\n", name)
-	fmt.Println("Now add the server: m server add", name, "<host:7000>")
+	fmt.Println("Now add the server: kaptan server add", name, "<host:7000>")
 	return nil
 }
 

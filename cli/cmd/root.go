@@ -8,10 +8,10 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "m",
+	Use:   "kaptan",
 	Short: "kaptan — centralised VPS microservice manager",
 	Long: `kaptan manages microservice deployments on Forge-managed VPS instances
-via mTLS/gRPC. Run 'm deploy' from a project with a .kaptan/ directory.`,
+via mTLS/gRPC. Run 'kaptan deploy' from a project with a .kaptan/ directory.`,
 }
 
 func Execute() {

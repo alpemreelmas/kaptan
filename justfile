@@ -7,13 +7,13 @@ export PATH := env("PATH") + ":" + GOBIN + "/bin"
 proto:
   cd proto && buf generate
 
-# Build the kaptan-agent binary
+# Build the reis binary
 agent:
-  go build -o bin/kaptan-agent ./agent
+  go build -o bin/reis ./agent
 
-# Build the kaptan CLI (m)
+# Build the kaptan CLI
 cli:
-  go build -o bin/m ./cli
+  go build -o bin/kaptan ./cli
 
 # Build everything
 build: agent cli
@@ -38,8 +38,8 @@ clean:
 
 # Install CLI to GOBIN
 install: cli
-  cp bin/m {{GOBIN}}/m
-  @echo "Installed m to {{GOBIN}}/m"
+  cp bin/kaptan {{GOBIN}}/kaptan
+  @echo "Installed kaptan to {{GOBIN}}/kaptan"
 
 # Run agent locally (no TLS)
 dev-agent:

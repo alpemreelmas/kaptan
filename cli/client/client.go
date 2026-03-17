@@ -132,7 +132,7 @@ func Connect(srv *ServerEntry) (agentv1.AgentServiceClient, *grpc.ClientConn, er
 			{"TLS cert", certFile}, {"TLS key", keyFile}, {"CA cert", caFile},
 		} {
 			if _, err := os.Stat(f.path); os.IsNotExist(err) {
-				return nil, nil, fmt.Errorf("%s not found: %s\n  Run: m cert init", f.label, f.path)
+				return nil, nil, fmt.Errorf("%s not found: %s\n  Run: kaptan cert init", f.label, f.path)
 			}
 		}
 		creds, err := buildClientTLS(certFile, keyFile, caFile)

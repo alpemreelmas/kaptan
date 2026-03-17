@@ -70,7 +70,7 @@ func runCertInit(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	fmt.Println("Next steps:")
-	fmt.Println("  1. Run: m server bootstrap <name> <ssh-user@host>")
+	fmt.Println("  1. Run: kaptan server bootstrap <name> <ssh-user@host>")
 	fmt.Println("  2. The bootstrap will install the agent and copy ~/.kaptan/certs/ca.crt")
 
 	return nil
