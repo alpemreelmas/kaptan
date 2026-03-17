@@ -1,73 +1,73 @@
-# Kaptan — Genel Bakış
+# Kaptan — Overview
 
-Kaptan, Forge ile yönetilen VPS sunucularına merkezi mikroservis deploy aracıdır. SSH tabanlı deploy'ların yerini mTLS ile kimlik doğrulanmış gRPC kanalı alır. Deploy mantığı tamamen her projenin kendi repo'sundaki `.kaptan/deploy.sh` dosyasında yaşar — kaptan sadece scripti çalıştırır ve çıktıyı geri akıtır.
-
----
-
-## Bileşenler
-
-| Bileşen | Binary | Nerede Çalışır | Görev |
-|---------|--------|---------------|-------|
-| **kaptan** | `bin/kaptan` | Geliştirici makinesi | CLI — komutları gönderir, çıktıyı gösterir |
-| **reis** | `bin/reis` | VPS sunucusu | gRPC sunucusu — scriptleri çalıştırır, logları akıtır |
+Kaptan is a centralised microservice deployment tool for Forge-managed VPS instances. It replaces SSH-based deploys with a secure gRPC + mTLS channel. Deployment logic lives entirely in `.kaptan/deploy.sh` inside each project repo — kaptan only executes scripts and streams output back to the CLI.
 
 ---
 
-## Mimari
+## Components
+
+| Component | Binary | Runs On | Role |
+|-----------|--------|---------|------|
+| **kaptan** | `bin/kaptan` | Developer machine | CLI — sends commands, displays output |
+| **reis** | `bin/reis` | VPS server | gRPC server — executes scripts, streams logs |
+
+---
+
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Geliştirici makinesi                                     │
+│  Developer machine                                        │
 │                                                           │
 │   kaptan (CLI)  ──mTLS/gRPC──►  reis (VPS)               │
 │       │                             │                     │
 │       │  DeployRequest              │  .kaptan/deploy.sh  │
 │       │  RollbackRequest            │  .kaptan/rollback.sh│
-│       │  StatusRequest              │  health check       │
-│       │  LogRequest                 │  systemd/app logları│
+│       │  StatusRequest              │  health checks      │
+│       │  LogRequest                 │  systemd/app logs   │
 │       │  GraphRequest               │  nginx log parser   │
 │       │                             │                     │
 │       ◄──── streaming ExecEvents ───┘                     │
 └──────────────────────────────────────────────────────────┘
 ```
 
-**Temel prensipler:**
-- Deploy mantığı repoda kalır (`.kaptan/deploy.sh`), kaptan içinde değil.
-- Tüm iletişim mTLS ile kimlik doğrulanmış gRPC üzerinden — çalışma zamanında SSH gerekmez.
-- `reis` tek bir durumsuz binary; veritabanı veya durum dosyası yoktur.
+**Key design principles:**
+- Deploy logic stays in your repo (`.kaptan/deploy.sh`), not in kaptan itself.
+- All communication is mTLS-authenticated gRPC — no SSH needed at runtime.
+- `reis` is a single stateless binary; no database, no state files.
 
 ---
 
-## mTLS Sertifika Modeli
+## mTLS Certificate Model
 
-Kaptan mutual TLS kullanır — hem istemci (kaptan) hem sunucu (reis) aynı CA tarafından imzalanmış sertifikalarla kimliğini kanıtlar.
+Kaptan uses mutual TLS — both client (kaptan) and server (reis) authenticate with certificates signed by the same CA.
 
 ```
 CA (ca.crt / ca.key)
-  ├── imzalar → server.crt  (VPS'te, reis tarafından kullanılır)
-  └── imzalar → client.crt  (geliştirici makinesinde, kaptan tarafından kullanılır)
+  ├── signs → server.crt  (on the VPS, used by reis)
+  └── signs → client.crt  (on your machine, used by kaptan)
 ```
 
-`ca.key` hiçbir zaman makinenizden çıkmak zorunda değildir. `ca.crt` ise her iki tarafta da bulunması gereken tek dosyadır.
+The CA key (`ca.key`) never needs to leave your machine. The CA cert (`ca.crt`) is the only file that must be present on both sides.
 
 ---
 
-## Hızlı Başlangıç (uçtan uca)
+## Quick Start (end-to-end)
 
 ```bash
-# 1. CLI'ı derle ve PATH'e ekle
+# 1. Build the CLI and put it in PATH
 go build -o ~/bin/kaptan ./cli
 
-# 2. mTLS sertifikalarını oluştur
+# 2. Generate mTLS certificates
 kaptan cert init
 
-# 3. VPS'e reis'i kur (ca.crt'yi kopyalar, binary'yi kurar)
+# 3. Bootstrap reis on your VPS (copies ca.crt, installs binary)
 kaptan server bootstrap web-prod-1 deploy@1.2.3.4
 
-# 4. Sunucuyu global config'e kaydet
+# 4. Register the server in global config
 kaptan server add web-prod-1 1.2.3.4:7000
 
-# 5. Proje repo'sunda .kaptan/config.yaml oluştur
+# 5. In your project repo, create .kaptan/config.yaml
 cat > .kaptan/config.yaml <<EOF
 service: my-api
 server:  web-prod-1
@@ -75,7 +75,7 @@ path:    /srv/my-api
 health_url: http://localhost:8080/healthz
 EOF
 
-# 6. .kaptan/deploy.sh oluştur
+# 6. Create .kaptan/deploy.sh
 cat > .kaptan/deploy.sh <<'EOF'
 #!/usr/bin/env bash
 set -e
@@ -90,75 +90,75 @@ systemctl restart my-api
 EOF
 chmod +x .kaptan/deploy.sh
 
-# 7. Deploy et
+# 7. Deploy
 kaptan deploy
 
-# Tüm prod sunucularda sağlık durumunu gör
+# Check service health across all prod servers
 kaptan status --tag=prod
 
-# Log akıt
+# Stream logs
 kaptan logs --tail=100
 
-# Bağımlılık grafiğini görüntüle
+# View dependency graph
 kaptan graph
 
-# Gerekirse geri al
+# Roll back if needed
 kaptan rollback
 ```
 
 ---
 
-## Deploy Script Protokolü
+## Deploy Script Protocol
 
-`reis`, `project_path` içinde `.kaptan/deploy.sh` (ve `.kaptan/rollback.sh`) çalıştırır. Scriptler şunları alır:
-- Çalışma dizini `project_path` olarak ayarlanmış
-- Stdout ve stderr satır satır CLI'a geri akıtılır
+`reis` executes `.kaptan/deploy.sh` (and `.kaptan/rollback.sh`) inside `project_path` on the server. Scripts receive:
+- Working directory set to `project_path`
+- Stdout and stderr both streamed back line-by-line to the CLI
 
-**Faz bildirimi** (opsiyonel ama önerilir):
+**Phase reporting** (optional but recommended):
 ```bash
-echo "[N/M] Faz açıklaması"
+echo "[N/M] Phase description"
 ```
-TUI bu deseni ayrıştırarak bir ilerleme listesi gösterir. Faz satırı içermeyen düz scriptler de sorunsuz çalışır — çıktı log panelinde gösterilir.
+The TUI parses this pattern and renders a progress list. Plain scripts without phase lines work fine — output is shown in the log panel.
 
-**Çıkış kodları:**
-- `0` — başarı (sağlık kontrolü sırada çalışır)
-- sıfır dışı — deploy başarısız, otomatik rollback tetiklenmez (rollback yalnızca başarısız sağlık kontrolü tarafından tetiklenir)
+**Exit codes:**
+- `0` — success (health check runs next)
+- non-zero — deploy fails; auto-rollback is NOT triggered (rollback is only triggered by a failed health check)
 
 ---
 
-## Kaynaklardan Derleme
+## Building from Source
 
-Gereksinimler: Go 1.22+, `buf` (yalnızca proto yenileme için)
+Requirements: Go 1.22+, `buf` (for proto regeneration only)
 
 ```bash
 git clone https://github.com/alpemreelmas/kaptan
 cd kaptan
 
-# Her şeyi derle
+# Build everything
 make build
-# Çıktı: bin/kaptan  bin/reis
+# Output: bin/kaptan  bin/reis
 
-# Yalnızca CLI
+# CLI only
 make cli
 
-# Yalnızca agent
+# Agent only
 make agent
 
-# (Opsiyonel) Protobuf'u yenile
+# (Optional) Regenerate protobuf
 cd proto && buf generate
 ```
 
-Go workspace yapısı (`go.work`), üç modülü bir arada tutar:
+The repo is a Go workspace (`go.work`) with three modules:
 
-| Modül | Yol |
-|-------|-----|
+| Module | Path |
+|--------|------|
 | `github.com/alpemreelmas/kaptan/proto` | `proto/gen/` |
 | `github.com/alpemreelmas/kaptan/agent` | `agent/` |
 | `github.com/alpemreelmas/kaptan/cli` | `cli/` |
 
 ---
 
-## Daha Fazla Bilgi
+## Further Reading
 
-- [kaptan.md](kaptan.md) — CLI komutları, konfigürasyon, TUI ekranları
-- [reis.md](reis.md) — Agent kurulumu, konfigürasyon, gRPC API
+- [kaptan.md](kaptan.md) — CLI commands, configuration, TUI screens
+- [reis.md](reis.md) — Agent setup, configuration, gRPC API

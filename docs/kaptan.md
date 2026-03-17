@@ -1,14 +1,14 @@
-# kaptan — CLI Referansı
+# kaptan — CLI Reference
 
-`kaptan`, geliştirici makinesinde çalışan komut satırı aracıdır. VPS'teki `reis` agent'ına mTLS/gRPC üzerinden bağlanarak deploy, rollback, log ve izleme komutlarını iletir.
+`kaptan` is the command-line tool that runs on your developer machine. It connects to the `reis` agent on a VPS over mTLS/gRPC and sends deploy, rollback, log, and monitoring commands.
 
 ---
 
-## Konfigürasyon
+## Configuration
 
-### Global Konfigürasyon — `~/.kaptan/config.yaml`
+### Global Configuration — `~/.kaptan/config.yaml`
 
-Tüm bilinen sunucuları ve opsiyonel graf ayarlarını tanımlar. Bu dosya `kaptan server add` komutuyla otomatik oluşturulur veya elle düzenlenebilir.
+Defines all known servers and optional graph settings. Created automatically by `kaptan server add`, or edited by hand.
 
 ```yaml
 servers:
@@ -35,69 +35,69 @@ graph:
     - "localhost"
 ```
 
-| Alan | Açıklama |
-|------|----------|
-| `servers[].name` | Komutlarda kullanılan sunucu takma adı |
-| `servers[].host` | `host:port` formatında adres |
-| `servers[].tags` | `--tag` filtresi için etiketler |
-| `servers[].tls` | mTLS sertifika yolları; boş bırakılırsa TLS'siz bağlanır (yalnızca geliştirme) |
-| `graph.internal_domains` | Bu desenlere uyan host'lar bağımlılık grafında "internal" olarak işaretlenir |
+| Field | Description |
+|-------|-------------|
+| `servers[].name` | Server alias used in commands |
+| `servers[].host` | Address in `host:port` format |
+| `servers[].tags` | Labels for `--tag` filtering |
+| `servers[].tls` | mTLS certificate paths; if empty, connects without TLS (development only) |
+| `graph.internal_domains` | Hosts matching these patterns are marked as "internal" in the dependency graph |
 
 ---
 
-### Proje Konfigürasyonu — `.kaptan/config.yaml`
+### Project Configuration — `.kaptan/config.yaml`
 
-Her proje repo'sunun kökünde bulunur. `kaptan deploy` çalıştırıldığında bu dosyadan okur.
+Lives at the root of each project repo. Read by `kaptan deploy` when invoked.
 
 ```yaml
-service: my-api                          # servis adı
-server:  web-prod-1                      # global config'deki sunucu adı
-path:    /srv/my-api                     # sunucu üzerindeki proje yolu
-health_url: http://localhost:8080/healthz  # deploy sonrası kontrol edilir
+service: my-api                           # service name
+server:  web-prod-1                       # server name from global config
+path:    /srv/my-api                      # absolute path on the server
+health_url: http://localhost:8080/healthz # checked after deploy
 ```
 
-| Alan | Zorunlu | Açıklama |
-|------|---------|----------|
-| `service` | evet | İnsan tarafından okunabilir servis adı |
-| `server` | evet | `~/.kaptan/config.yaml`'daki sunucu adı |
-| `path` | evet | Sunucu üzerindeki mutlak proje yolu |
-| `health_url` | hayır | Deploy başarılıysa `reis` bu URL'yi kontrol eder |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `service` | yes | Human-readable service name |
+| `server` | yes | Server name from `~/.kaptan/config.yaml` |
+| `path` | yes | Absolute project path on the server |
+| `health_url` | no | If set, `reis` checks this URL after a successful deploy |
 
 ---
 
-## Komutlar
+## Commands
 
 ### `kaptan deploy`
 
-Yapılandırılmış sunucuda `.kaptan/deploy.sh`'i çalıştırır ve çıktıyı akıtır.
+Runs `.kaptan/deploy.sh` on the configured server and streams output.
 
 ```
-kaptan deploy [bayraklar]
+kaptan deploy [flags]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--server <ad>` | `.kaptan/config.yaml`'dan | Hedef sunucuyu geçersiz kıl |
-| `--dry-run` | false | Çalıştırmadan önizle |
-| `--all` | false | `--tag` ile eşleşen tüm sunuculara deploy et |
-| `--tag <etiket>` | — | `--all` ile birlikte sunucu filtresi |
-| `--no-tui` | false | TUI yerine düz metin çıktısı |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--server <name>` | from `.kaptan/config.yaml` | Override the target server |
+| `--dry-run` | false | Preview without executing |
+| `--all` | false | Deploy to all servers matching `--tag` |
+| `--tag <tag>` | — | Server filter, used together with `--all` |
+| `--no-tui` | false | Plain text output instead of TUI |
 
-**Yeniden deneme:** Bağlantı hatalarında üstel geri çekilme ile 3'e kadar deneme.
+**Retry logic:** Up to 3 attempts with exponential backoff on connection failures.
 
-**Paralel deploy:** `--all --tag=prod` her eşleşen sunucu için ayrı bir goroutine başlatır ve tüm hataları toplar.
+**Parallel deploys:** `--all --tag=prod` launches one goroutine per matching server and collects all errors.
 
 ```bash
-kaptan deploy                            # TUI çıktısıyla deploy
-kaptan deploy --no-tui                   # düz metin akışı
-kaptan deploy --dry-run                  # yalnızca önizle
-kaptan deploy --server web-staging-1    # sunucuyu geçersiz kıl
-kaptan deploy --all --tag=prod          # tüm prod sunucularına paralel deploy
+kaptan deploy                            # deploy with TUI output
+kaptan deploy --no-tui                   # plain streaming output
+kaptan deploy --dry-run                  # preview only
+kaptan deploy --server web-staging-1    # override server
+kaptan deploy --all --tag=prod          # deploy to all prod servers in parallel
 ```
 
-**TUI ekranı:**
+**TUI screen:**
 
-Deploy TUI varsayılan olarak aktiftir (`--no-tui` ile devre dışı bırakılır). Deploy scriptinizden gelen `[N/M] açıklama` satırlarını ayrıştırarak fazları izler.
+The deploy TUI is active by default (disable with `--no-tui`). It parses `[N/M] description` lines from your deploy script to track phases.
 
 ```
 ╭─────────────────────────────────────────╮
@@ -108,78 +108,78 @@ Deploy TUI varsayılan olarak aktiftir (`--no-tui` ile devre dışı bırakılı
 │  Script     deploy                      │
 │                                         │
 │  [1/3] Pull latest image          ✓    │
-│  [2/3] Run migrations             ●    │  ← çalışıyor
-│  [3/3] Restart service            ·    │  ← bekliyor
+│  [2/3] Run migrations             ●    │  ← running
+│  [3/3] Restart service            ·    │  ← pending
 │                                         │
 │  ─── log ───                           │
 │  Pulling from registry...              │
 ╰─────────────────────────────────────────╯
 ```
 
-Faz durum simgeleri: `✓` tamamlandı · `●` çalışıyor · `✗` başarısız · `·` bekliyor
+Phase state icons: `✓` done · `●` running · `✗` failed · `·` pending
 
 ---
 
 ### `kaptan rollback`
 
-Sunucuda `.kaptan/rollback.sh`'i çalıştırır. Çıktı düz metin olarak akıtılır.
+Runs `.kaptan/rollback.sh` on the server. Output is streamed as plain text.
 
 ```
-kaptan rollback [--server <ad>]
+kaptan rollback [--server <name>]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--server <ad>` | `.kaptan/config.yaml`'dan | Hedef sunucuyu geçersiz kıl |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--server <name>` | from `.kaptan/config.yaml` | Override the target server |
 
 ---
 
 ### `kaptan status`
 
-Yapılandırılmış tüm servislerin sağlık durumunu kontrol eder. Tüm sunucuları paralel sorgular ve TUI tablosu gösterir.
+Health-checks all configured services. Queries all servers in parallel and renders a TUI table.
 
 ```
-kaptan status [--tag <etiket>]
+kaptan status [--tag <tag>]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--tag <etiket>` | — | Sunucuları etikete göre filtrele |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tag <tag>` | — | Filter servers by tag |
 
-Çıktı sütunları: `Server`, `Service`, `Healthy` (✓/✗), `HTTP Status Code`.
+Output columns: `Server`, `Service`, `Healthy` (✓/✗), `HTTP Status Code`.
 
 ---
 
 ### `kaptan logs`
 
-Uzak servisten log akıtır.
+Streams logs from a remote service.
 
 ```
-kaptan logs [bayraklar]
+kaptan logs [flags]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--server <ad>` | `.kaptan/config.yaml`'dan | Hedef sunucu |
-| `--tail <n>` | 50 | Akışa başlanacak son satır sayısı |
-| `--file <yol>` | otomatik | Sunucudaki açık log dosyası yolu |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--server <name>` | from `.kaptan/config.yaml` | Target server |
+| `--tail <n>` | 50 | Number of lines from the end to start streaming from |
+| `--file <path>` | auto | Explicit log file path on the server |
 
 ---
 
 ### `kaptan graph`
 
-Nginx erişim loglarından servis bağımlılık grafını çeker ve görüntüler.
+Fetches and displays the service dependency graph derived from nginx access logs.
 
 ```
-kaptan graph [bayraklar]
+kaptan graph [flags]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--server <ad>` | `.kaptan/config.yaml`'dan | Hedef sunucu |
-| `--log-file <yol>` | `/var/log/nginx/access.log` | Sunucudaki erişim log yolu |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--server <name>` | from `.kaptan/config.yaml` | Target server |
+| `--log-file <path>` | `/var/log/nginx/access.log` | Access log path on the server |
 
-Etkileşimli TUI gösterir. Çıkmak için `q` veya `Ctrl+C`.
+Displays an interactive TUI. Press `q` or `Ctrl+C` to exit.
 
 ```
 ╭──────────────────────────────────────────────╮
@@ -188,62 +188,62 @@ Etkileşimli TUI gösterir. Çıkmak için `q` veya `Ctrl+C`.
 │ my-api                                       │
 │     ├─[200]──► auth-service                  │
 │     ├─[200]──► postgres.internal             │
-│     └─[503]──► payment-api  ← 12 hata/5dak  │
+│     └─[503]──► payment-api  ← 12 err/5min   │
 │                                              │
-│ (çıkmak için q)                              │
+│ (q to quit)                                  │
 ╰──────────────────────────────────────────────╯
 ```
 
-Graf açıklaması:
-- Yeşil `[2xx]` — başarılı upstream çağrısı
-- Kırmızı `[4xx/5xx]` — hata yanıtı, 5 dakikalık pencere başına hata sayısıyla
-- Internal kenarlar servis adlarıyla; external kenarlar tam host adıyla gösterilir
+Graph legend:
+- Green `[2xx]` — successful upstream call
+- Red `[4xx/5xx]` — error response, with error count per 5-minute window
+- Internal edges show service names; external edges show the full hostname
 
 ---
 
 ### `kaptan cert init`
 
-mTLS için öz imzalı CA ve istemci sertifikası çifti oluşturur.
+Generates a self-signed CA and client certificate pair for mTLS.
 
 ```
 kaptan cert init
 ```
 
-Oluşturulan dosyalar:
+Creates:
 ```
 ~/.kaptan/certs/
-  ca.crt       # CA sertifikası (sunucuya kopyalanır)
-  ca.key       # CA özel anahtarı (gizli tutulur)
-  client.crt   # istemci sertifikası
-  client.key   # istemci özel anahtarı
+  ca.crt       # CA certificate (copy to server)
+  ca.key       # CA private key (keep secret)
+  client.crt   # client certificate
+  client.key   # client private key
 ```
 
-Algoritma: ECDSA P-256. Çalıştırdıktan sonra yazdırılan adımları izleyerek agent'ı bootstrap edin.
+Algorithm: ECDSA P-256. After running, follow the printed next steps to bootstrap the agent.
 
 ---
 
 ### `kaptan cert rotate`
 
-Mevcut CA'yı kullanarak istemci sertifikasını yeniler.
+Re-generates the client certificate using the existing CA.
 
 ```
-kaptan cert rotate --server <ad>
+kaptan cert rotate --server <name>
 ```
 
-| Bayrak | Zorunlu | Açıklama |
-|--------|---------|----------|
-| `--server <ad>` | evet | Sunucu adı (bilgilendirme amaçlı) |
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--server <name>` | yes | Server name (informational) |
 
-`~/.kaptan/certs/client.{crt,key}` dosyalarının üzerine yazar. Rotasyondan sonra yeniden bağlanın.
+Overwrites `~/.kaptan/certs/client.{crt,key}`. Reconnect after rotating — the old client cert will be rejected.
 
 ---
 
 ### `kaptan server add`
 
-`~/.kaptan/config.yaml`'a bir sunucu kaydeder.
+Registers a server in `~/.kaptan/config.yaml`.
 
 ```
-kaptan server add <ad> <adres>
+kaptan server add <name> <host:port>
 ```
 
 ```bash
@@ -254,17 +254,17 @@ kaptan server add web-prod-1 1.2.3.4:7000
 
 ### `kaptan server bootstrap`
 
-SSH üzerinden VPS'e `reis` binary'sini kurar, CA sertifikasını kopyalar ve agent konfigürasyonunu oluşturur.
+Installs the `reis` binary on a VPS via SSH, copies the CA certificate, and sets up the agent config.
 
 ```
-kaptan server bootstrap <ad> <ssh-kullanıcı@host>
+kaptan server bootstrap <name> <ssh-user@host>
 ```
 
-Yapılanlar:
-1. Sunucuya SSH ile bağlanır
-2. Uzak install.sh scriptini çalıştırır (`reis` binary'sini indirir)
-3. `~/.kaptan/certs/ca.crt`'yi sunucudaki `~/.reis/certs/` dizinine kopyalar
-4. `reis`'i systemd servisi olarak yeniden başlatır
+What it does:
+1. SSH into the server
+2. Runs the remote `install.sh` script (downloads the `reis` binary)
+3. Copies `~/.kaptan/certs/ca.crt` to `~/.reis/certs/` on the server
+4. Restarts `reis` as a systemd service
 
 ```bash
 kaptan server bootstrap web-prod-1 deploy@1.2.3.4
@@ -272,21 +272,21 @@ kaptan server bootstrap web-prod-1 deploy@1.2.3.4
 
 ---
 
-## Sertifika Kurulum Akışı
+## Certificate Setup Flow
 
 ```bash
-# Sertifikaları oluştur
+# Generate certificates
 kaptan cert init
 
-# Agent'ı kur ve ca.crt'yi kopyala
+# Install agent and copy ca.crt
 kaptan server bootstrap web-prod-1 user@1.2.3.4
 
-# Sunucuyu kaydet
+# Register server
 kaptan server add web-prod-1 1.2.3.4:7000
 ```
 
-**Rotasyon:**
+**Rotation:**
 ```bash
 kaptan cert rotate --server web-prod-1
-# Eski istemci sertifikası reddedilir — yeniden bağlanın
+# Old client cert is rejected — reconnect with the new one
 ```

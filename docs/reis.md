@@ -1,62 +1,62 @@
-# reis — Agent Referansı
+# reis — Agent Reference
 
-`reis`, her VPS sunucusunda systemd servisi olarak çalışan gRPC sunucusudur. `kaptan` CLI'dan gelen komutları alır; deploy scriptlerini çalıştırır, çıktıyı akıtır, sağlık kontrolü yapar ve gerektiğinde otomatik rollback başlatır.
+`reis` is the gRPC server that runs as a systemd service on each VPS. It receives commands from the `kaptan` CLI, executes deploy scripts, streams output, performs health checks, and automatically triggers rollback when a health check fails.
 
 ---
 
-## Kurulum
+## Installation
 
-`kaptan server bootstrap` komutu kurulum sürecini otomatikleştirir. Manuel kurulum için `install.sh` scripti kullanılabilir:
+`kaptan server bootstrap` automates the entire installation process. For manual installation, use the `install.sh` script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alpemreelmas/kaptan/main/install.sh | bash
 ```
 
-Script şunları yapar:
-1. En son `reis` binary'sini GitHub Releases'ten indirir
-2. `~/.reis/bin/reis` konumuna kurar
-3. `~/.reis/config.yaml` varsayılan konfigürasyonunu oluşturur
-4. `~/.reis/certs/` sertifika dizinini hazırlar
-5. systemd servisini yazar ve başlatır (`systemctl` mevcutsa)
+The script:
+1. Downloads the latest `reis` binary from GitHub Releases
+2. Installs it to `~/.reis/bin/reis`
+3. Writes a default config to `~/.reis/config.yaml`
+4. Creates the `~/.reis/certs/` directory
+5. Writes and starts a systemd service (if `systemctl` is available)
 
 ---
 
-## Konfigürasyon
+## Configuration
 
-### Konfigürasyon Dosyası — `~/.reis/config.yaml`
+### Config File — `~/.reis/config.yaml`
 
 ```yaml
 listen_addr: ":7000"
 tls:
-  cert: ~/.reis/certs/server.crt   # sunucu sertifikası
-  key:  ~/.reis/certs/server.key   # sunucu özel anahtarı
-  ca:   ~/.reis/certs/ca.crt       # istemcileri doğrulamak için CA sertifikası
+  cert: ~/.reis/certs/server.crt   # server certificate
+  key:  ~/.reis/certs/server.key   # server private key
+  ca:   ~/.reis/certs/ca.crt       # CA cert to verify clients
 ```
 
-| Alan | Varsayılan | Açıklama |
-|------|-----------|----------|
-| `listen_addr` | `:7000` | Dinlenecek TCP adresi |
-| `tls.cert` | — | Sunucu TLS sertifikası yolu |
-| `tls.key` | — | Sunucu TLS özel anahtarı yolu |
-| `tls.ca` | — | İstemci sertifikalarını doğrulamak için CA sertifikası |
+| Field | Default | Description |
+|-------|---------|-------------|
+| `listen_addr` | `:7000` | TCP address to bind |
+| `tls.cert` | — | Server TLS certificate path |
+| `tls.key` | — | Server TLS private key path |
+| `tls.ca` | — | CA certificate for verifying client certs |
 
-> `tls` bölümü atlanırsa veya herhangi bir yol boş bırakılırsa, `reis` **TLS olmadan** başlar (yalnızca geliştirme — log'a uyarı yazılır).
+> If the `tls` section is omitted or any path is empty, `reis` starts **without TLS** (development only — a warning is logged).
 
 ---
 
-### Başlatma ve Bayraklar
+### Startup and Flags
 
 ```
-reis [bayraklar]
+reis [flags]
 ```
 
-| Bayrak | Varsayılan | Açıklama |
-|--------|-----------|----------|
-| `--config` | `~/.reis/config.yaml` | Konfigürasyon dosyası yolu |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--config` | `~/.reis/config.yaml` | Path to config file |
 
-Konfigürasyon dosyası bulunamazsa `reis` varsayılanlarla (TLS'siz, `:7000`) başlar.
+If the config file is not found, `reis` starts with defaults (no TLS, `:7000`).
 
-Yapılandırılmış günlükleme `log/slog` ile JSON uyumlu çıktı üretir:
+Structured logging via `log/slog` produces JSON-compatible output:
 
 ```
 INFO  reis starting addr=:7000
@@ -66,9 +66,9 @@ INFO  listening addr=:7000
 
 ---
 
-### systemd Servisi
+### systemd Service
 
-`install.sh` tarafından oluşturulan unit dosyası:
+Unit file written by `install.sh`:
 
 ```ini
 [Unit]
@@ -87,7 +87,7 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-# Servis yönetimi
+# Service management
 systemctl status reis
 systemctl restart reis
 journalctl -u reis -f
@@ -95,168 +95,167 @@ journalctl -u reis -f
 
 ---
 
-## Sertifika Kurulumu (Sunucu Tarafı)
+## Certificate Setup (Server Side)
 
-`kaptan server bootstrap` bu adımları otomatik yapar. Manuel kurulum:
+`kaptan server bootstrap` handles this automatically. For manual setup:
 
 ```bash
-# 1. Geliştirici makinesinden CA sertifikasını kopyala
-scp ~/.kaptan/certs/ca.crt deploy@sunucu:~/.reis/certs/ca.crt
+# 1. Copy CA cert from developer machine
+scp ~/.kaptan/certs/ca.crt deploy@server:~/.reis/certs/ca.crt
 
-# 2. Sunucuda sunucu sertifikası oluştur (CA tarafından imzalanmış)
-#    ya da kaptan cert init sonrası oluşturulan server.crt/server.key'i kopyala
+# 2. Place server.crt and server.key (signed by the same CA) in ~/.reis/certs/
 
-# 3. reis'i yeniden başlat
+# 3. Restart reis
 systemctl restart reis
 ```
 
-Sertifika dosyaları yapısı:
+Expected file structure:
 ```
 ~/.reis/
   config.yaml
   certs/
-    ca.crt       # kaptan'dan kopyalanan CA sertifikası
-    server.crt   # bu sunucunun sertifikası
-    server.key   # bu sunucunun özel anahtarı
+    ca.crt       # CA certificate copied from kaptan
+    server.crt   # this server's certificate
+    server.key   # this server's private key
 ```
 
 ---
 
 ## gRPC API
 
-Servis: `agent.v1.AgentService`
-Varsayılan port: `:7000`
+Service: `agent.v1.AgentService`
+Default port: `:7000`
 
 ---
 
-### `Deploy` (sunucu-akış)
+### `Deploy` (server-streaming)
 
-`project_path` içinde belirtilen scripti çalıştırır ve çıktıyı satır satır akıtır.
+Runs the specified script inside `project_path` and streams output line by line.
 
-**İstek:**
+**Request:**
 
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `project_path` | string | Sunucudaki projenin mutlak yolu |
-| `script` | string | Uzantısız script adı (varsayılan: `"deploy"`) |
-| `dry_run` | bool | true ise çalıştırmadan ne yapacağını gösterir |
+| Field | Type | Description |
+|-------|------|-------------|
+| `project_path` | string | Absolute path to the project on the server |
+| `script` | string | Script name without extension (default: `"deploy"`) |
+| `dry_run` | bool | If true, prints what would run without executing |
 
-**Akış olayları (`ExecEvent`):**
+**Stream events (`ExecEvent`):**
 
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `line` | string | Stdout/stderr'den bir satır |
-| `is_stderr` | bool | Satır stderr'den geldiyse true |
-| `done` | bool | Son olayda true |
-| `exit_code` | int32 | Script çıkış kodu (yalnızca `done=true` olduğunda geçerli) |
+| Field | Type | Description |
+|-------|------|-------------|
+| `line` | string | One line of stdout/stderr |
+| `is_stderr` | bool | True if the line came from stderr |
+| `done` | bool | True on the final event |
+| `exit_code` | int32 | Script exit code (only valid when `done=true`) |
 
-**Deploy sonrası akış:**
+**Post-deploy flow:**
 
-Başarılı deploy (`exit_code=0`) sonrasında `reis` otomatik olarak sağlık kontrolü yapar:
+After a successful deploy (`exit_code=0`), `reis` automatically runs a health check:
 
 ```
-deploy.sh çıkış kodu 0
-    └─► GET health_url (30 sn timeout)
-            ├─ 2xx  →  "[health] → 200 OK" akıtılır, deploy başarılı
-            └─ diğer → rollback.sh otomatik tetiklenir
-                        "[rollback] ..." log satırları akıtılır
-                        gRPC status: codes.Internal döner
+deploy.sh exits 0
+    └─► GET health_url (30s timeout)
+            ├─ 2xx  →  "[health] → 200 OK" streamed, deploy succeeds
+            └─ other →  rollback.sh triggered automatically
+                         "[rollback] ..." lines streamed
+                         gRPC status: codes.Internal returned
 ```
 
-**Dry-run davranışı:** `reis` iki sentetik olay gönderir ve çıkar, dosya sistemine dokunmaz:
+**Dry-run behaviour:** `reis` sends two synthetic events and exits without touching the filesystem:
 ```
-[dry-run] would execute: /yol/.kaptan/deploy.sh
+[dry-run] would execute: /path/.kaptan/deploy.sh
 [dry-run] done
 ```
 
 ---
 
-### `Rollback` (sunucu-akış)
+### `Rollback` (server-streaming)
 
-`project_path` içinde `.kaptan/rollback.sh`'i çalıştırır. Akış olayları `Deploy` ile aynıdır.
-
----
-
-### `GetStatus` (tekli)
-
-`reis`'in bildiği tüm servislerin sağlık durumunu döner.
-
-**`ServiceStatus` alanları:**
-
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `service_name` | string | Servis adı |
-| `healthy` | bool | Sağlık URL'si 2xx döndürdüyse true |
-| `status_code` | int32 | Son sağlık kontrolündeki HTTP durum kodu |
+Runs `.kaptan/rollback.sh` inside `project_path`. Stream events are identical to `Deploy`.
 
 ---
 
-### `StreamLogs` (sunucu-akış)
+### `GetStatus` (unary)
 
-Uzak bir log dosyasını tail eder ve satırları akıtır.
+Returns the health status of all services `reis` is aware of.
 
-**İstek:**
+**`ServiceStatus` fields:**
 
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `project_path` | string | Varsayılan log dosyasını bulmak için kullanılır |
-| `log_file` | string | Açık log dosyası yolu (otomatik algılamayı geçersiz kılar) |
-| `tail` | int32 | Başlangıçta okunacak son satır sayısı (varsayılan: 50) |
-
----
-
-### `GetDependencyGraph` (tekli)
-
-Nginx erişim loglarını ayrıştırarak servis bağımlılık grafiği döner.
-
-**İstek:**
-
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `log_file` | string | Nginx log yolu (varsayılan: `/var/log/nginx/access.log`) |
-| `internal_domains` | []string | Internal kenar sınıflandırması için glob desenleri (ör. `*.internal`) |
-
-**Yanıt — `GraphEdge` listesi:**
-
-| Alan | Tür | Açıklama |
-|------|-----|----------|
-| `from` | string | Kaynak servis (log dosyası adından türetilir) |
-| `to` | string | Hedef host |
-| `status_code` | int32 | Gözlemlenen HTTP durumu |
-| `error_count` | int32 | 4xx/5xx yanıt sayısı |
-| `kind` | enum | `INTERNAL` veya `EXTERNAL` |
+| Field | Type | Description |
+|-------|------|-------------|
+| `service_name` | string | Name of the service |
+| `healthy` | bool | True if the health URL returned 2xx |
+| `status_code` | int32 | Last HTTP status code from the health check |
 
 ---
 
-## Bağımlılık Grafiği Ayrıştırıcısı
+### `StreamLogs` (server-streaming)
 
-`reis`, nginx erişim logu satırlarını aşağıdaki desenle eşleştirir:
+Tails a remote log file and streams lines.
+
+**Request:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `project_path` | string | Used to locate the default log file |
+| `log_file` | string | Explicit log file path (overrides auto-detection) |
+| `tail` | int32 | Number of lines from the end to start with (default: 50) |
+
+---
+
+### `GetDependencyGraph` (unary)
+
+Parses nginx access logs and returns a service dependency graph.
+
+**Request:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `log_file` | string | Nginx log path (default: `/var/log/nginx/access.log`) |
+| `internal_domains` | []string | Glob patterns for internal edge classification (e.g. `*.internal`) |
+
+**Response — list of `GraphEdge`:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `from` | string | Source service (derived from log filename) |
+| `to` | string | Destination host |
+| `status_code` | int32 | HTTP status observed |
+| `error_count` | int32 | Number of 4xx/5xx responses |
+| `kind` | enum | `INTERNAL` or `EXTERNAL` |
+
+---
+
+## Dependency Graph Parser
+
+`reis` matches nginx access log lines with the following pattern:
 
 ```
-"GET http://servis-adi:3000/yol HTTP/1.1" 200 1234
+"GET http://service-name:3000/path HTTP/1.1" 200 1234
 ```
 
-- **Kaynak**, log dosyası adından çıkarılır: `/var/log/nginx/my-api.access.log` → `my-api`
-- **Hedef**, istek URL'sinden çıkarılan upstream host'tur
-- Kenarlar `(kaynak, hedef, durum_kodu)` üçlüsüne göre tekilleştirilir ve gruplandırılır
-- Hedef host `internal_domains` desenlerinden herhangi biriyle eşleşiyorsa veya nokta içermiyorsa (ör. `postgres`) `INTERNAL` olarak sınıflandırılır
-- `error_count`, durum kodu ≥ 400 olan yanıt sayısıdır
+- **Source** is derived from the log filename: `/var/log/nginx/my-api.access.log` → `my-api`
+- **Destination** is the upstream host extracted from the request URL
+- Edges are deduplicated and grouped by `(from, to, status_code)`
+- An edge is classified as `INTERNAL` if the destination host matches any pattern in `internal_domains`, or if it contains no dots (e.g. `postgres`)
+- `error_count` is the number of responses with status ≥ 400
 
 ---
 
-## Sağlık Kontrolü ve Otomatik Rollback
+## Health Check and Auto-Rollback
 
-`reis`, her başarılı deploy sonrasında `project_path` içindeki `.kaptan/config.yaml` dosyasını okur:
+After every successful deploy, `reis` reads `.kaptan/config.yaml` inside `project_path`:
 
 ```yaml
-# proje içindeki .kaptan/config.yaml (sunucu tarafı)
+# .kaptan/config.yaml (inside the project, on the server)
 service:    my-api
 health_url: http://localhost:8080/healthz
 ```
 
-`health_url` tanımlıysa:
-- 30 saniyelik timeout ile HTTP GET gönderilir
-- 2xx → `[health] → 200 OK` log satırı akıtılır, deploy başarılı sayılır
-- Diğer → `.kaptan/rollback.sh` otomatik çalıştırılır, `[rollback] ...` satırları akıtılır, `codes.Internal` ile döner
+If `health_url` is set:
+- HTTP GET is sent with a 30-second timeout
+- 2xx → `[health] → 200 OK` is streamed, deploy is considered successful
+- Anything else → `.kaptan/rollback.sh` is run automatically, `[rollback] ...` lines are streamed, `codes.Internal` is returned
 
-`health_url` tanımlı değilse sağlık kontrolü atlanır ve deploy başarılı sayılır.
+If `health_url` is not set, the health check is skipped and the deploy is considered successful.
