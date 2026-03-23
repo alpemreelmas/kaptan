@@ -43,6 +43,7 @@ type ProjectConfig struct {
 	Server    string `yaml:"server"`
 	Path      string `yaml:"path"`
 	HealthURL string `yaml:"health_url"`
+	Repo      string `yaml:"repo"`
 }
 
 // LoadGlobalConfig reads ~/.kaptan/config.yaml.

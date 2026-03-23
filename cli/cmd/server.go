@@ -23,14 +23,23 @@ var serverAddCmd = &cobra.Command{
 	RunE:  runServerAdd,
 }
 
+var bootstrapInit bool
+
 var serverBootstrapCmd = &cobra.Command{
 	Use:   "bootstrap <name> <ssh-user@host>",
 	Short: "Install reis on a server via SSH",
-	Args:  cobra.ExactArgs(2),
-	RunE:  runServerBootstrap,
+	Long: `Install the reis agent on a remote server via SSH.
+
+If run from inside a kaptan project directory (with .kaptan/config.yaml),
+use --init to also clone the project repo on the server so it is
+ready for the first 'kaptan deploy'.`,
+	Args: cobra.ExactArgs(2),
+	RunE: runServerBootstrap,
 }
 
 func init() {
+	serverBootstrapCmd.Flags().BoolVar(&bootstrapInit, "init", false,
+		"Clone the project repo on the server after installing reis (reads .kaptan/config.yaml)")
 	serverCmd.AddCommand(serverAddCmd)
 	serverCmd.AddCommand(serverBootstrapCmd)
 }
@@ -61,7 +70,7 @@ func runServerAdd(cmd *cobra.Command, args []string) error {
 
 func runServerBootstrap(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	sshTarget := args[1] // e.g. forge@1.2.3.4
+	sshTarget := args[1] // e.g. root@1.2.3.4
 
 	home, _ := os.UserHomeDir()
 	caPath := filepath.Join(home, ".kaptan", "certs", "ca.crt")
@@ -99,7 +108,44 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("Successfully bootstrapped %s\n", name)
-	fmt.Println("Now add the server: kaptan server add", name, "<host:7000>")
+
+	// --init: clone project repo on the server
+	if bootstrapInit {
+		proj, err := client.LoadProjectConfig()
+		if err != nil {
+			return fmt.Errorf("--init requires a .kaptan/config.yaml in the current directory: %w", err)
+		}
+		if proj.Repo == "" {
+			return fmt.Errorf("--init requires 'repo' field in .kaptan/config.yaml")
+		}
+
+		fmt.Printf("Initialising project %s at %s...\n", proj.Service, proj.Path)
+
+		// Create the directory and clone (idempotent: skip if .git already exists)
+		initScript := fmt.Sprintf(
+			`set -e
+mkdir -p %s
+if [ ! -d %s/.git ]; then
+  git clone --depth=1 %s %s
+  echo "Cloned %s"
+else
+  echo "Repo already exists, skipping clone."
+fi`,
+			proj.Path, proj.Path, proj.Repo, proj.Path, proj.Repo,
+		)
+
+		cloneCmd := exec.Command("ssh", sshTarget, initScript)
+		cloneCmd.Stdout = os.Stdout
+		cloneCmd.Stderr = os.Stderr
+		if err := cloneCmd.Run(); err != nil {
+			return fmt.Errorf("project init failed: %w", err)
+		}
+
+		fmt.Printf("Project ready. Run 'kaptan deploy' to deploy.\n")
+	} else {
+		fmt.Println("Now add the server: kaptan server add", name, "<host:7000>")
+	}
+
 	return nil
 }
 
