@@ -1,0 +1,53 @@
+project: kaptan
+version: 2
+before:
+  hooks:
+    - cd proto && buf generate
+    - cd proto/gen && go mod tidy
+    - cd agent && go mod tidy
+    - cd cli && go mod tidy
+archives:
+  - id: cli
+    builds:
+      - cli
+    files:
+      - none
+  - id: agent
+    builds:
+      - agent
+    files:
+      - none
+builds:
+  - id: cli
+    dir: cli
+    binary_name: kaptan
+    main: .
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/alpemreelmas/kaptan/cli/internal/version.Version={{.Version}}
+  - id: agent
+    dir: agent
+    binary_name: reis
+    main: .
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/alpemreelmas/kaptan/agent/internal/version.Version={{.Version}}
+checksum:
+  name_template: checksums.txt
+release:
+  github:
+    owner: alpemreelmas
+    name: kaptan
+  draft: false

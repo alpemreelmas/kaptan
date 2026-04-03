@@ -6,8 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/spf13/cobra"
 	"github.com/alpemreelmas/kaptan/cli/client"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
@@ -83,7 +83,7 @@ func runServerBootstrap(cmd *cobra.Command, args []string) error {
 
 	// install agent via remote install.sh
 	installCmd := exec.Command("ssh", sshTarget,
-		"curl -fsSL https://raw.githubusercontent.com/alpemreelmas/kaptan/main/install.sh | bash")
+		"curl -fsSL https://raw.githubusercontent.com/alpemreelmas/kaptan/main/scripts/install-agent.sh | bash")
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 	if err := installCmd.Run(); err != nil {

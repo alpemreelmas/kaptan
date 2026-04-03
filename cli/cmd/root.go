@@ -29,4 +29,5 @@ func init() {
 	rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(certCmd)
+	rootCmd.AddCommand(selfUpdateCmd)
 }

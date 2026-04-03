@@ -45,6 +45,10 @@ install: cli
 dev-agent:
   cd agent && go run . --config /dev/null
 
+# Run GoReleaser locally (for testing)
+release:
+  goreleaser release --clean --snapshot --skip-publish
+
 # Show all available tasks
 help:
   @just --list
